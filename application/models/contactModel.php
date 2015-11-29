@@ -1,30 +1,75 @@
 <?php
 
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-
 class contactModel extends Model {
 
     protected function init() {
+        $this->create();
+        $this->mysqlConnection();
         
     }
 
-    public function insert($name, $email, $msg) {
-        $id = false;
-        $name = $_POST['name'];
-        $email = $_POST['email'];
-        $msg = $_POST['message'];
-        $result = $this->db->query("INSERT INTO `info_contact`(`name`,`email`,`message`,`last_update`) VALUES('$name','{$email}','{$msg}',NOW())");
-        if ($result !== false) {
-            $id = $this->db->insertId();
+    public function create($name = null, $email = null, $msg = null) {
+
+        $servername = "localhost";
+        $username = "root";
+        $password = "";
+        $dbname = "contactinfo";
+
+        // Create connection
+        $conn = mysql_connect($servername, $username, $password);
+
+        if (!$conn) {
+            die('Could not connect: ' . mysql_error());
         }
-        return $id;
+
+        if ($_SERVER["REQUEST_METHOD"] == 'POST') {
+
+            $name = $_POST['name'];
+            $email = $_POST['email'];
+            $msg = $_POST['message'];
+            echo $content= $_POST['content'];
+
+            $sql = "INSERT INTO info_contact " . "(name, email, message, content) " . "VALUES('$name','$email','$msg', '$content')";
+
+            mysql_select_db($dbname);
+            $retval = mysql_query( $sql, $conn );
+            
+            if(! $retval )
+            {
+               die('Could not enter data: ' . mysql_error());
+            }
+
+            echo "Entered data successfully\n";
+
+            $result = mysql_query('SELECT * FROM `info_contact`');
+            
+            if (!$result){
+                die('Couldn\'t fetch records');
+            }
+            
+            $num_fields = mysql_num_fields($result);
+            
+            $headers = array();
+            for ($i = 0; $i < $num_fields; $i++) {
+                $headers[] = mysql_field_name($result, $i);
+            }
+            $fp = fopen('php://output', 'w');
+            if ($fp && $result) {
+                header('Content-Type: text/csv');
+                header('Content-Disposition: attachment; filename="myCsvFile.csv"');
+                header('Pragma: no-cache');
+                header('Expires: 0');
+                fputcsv($fp, $headers);
+                while ($row = mysql_fetch_row($result)) {
+                    fputcsv($fp, array_values($row));
+                }
+                die;
+            }
+        }
     }
 
     public function mysqlConnection() {
+
         $servername = "localhost";
         $username = "root";
         $password = "";
@@ -48,18 +93,16 @@ class contactModel extends Model {
         $val = mysql_query('select 1 from `info_contact` LIMIT 1');
 
         if ($val !== FALSE) {
-
-            //echo "table info_contact exists";echo "</br>";
+            
         } else {
-
-            //echo "info_contact does not exists";echo "</br>";
 
             $DBTablesql = 'CREATE TABLE IF NOT EXISTS info_contact ( 
                 id INT(11) NOT NULL AUTO_INCREMENT,
                 name VARCHAR(16) NOT NULL,
 		email VARCHAR(255) NOT NULL,
 		message VARCHAR(255) NULL,
-		file VARCHAR(255) NULL,
+		content MEDIUMBLOB NOT NULL,
+                contactTime datetime NOT NULL DEFAULT NOW(),
                     PRIMARY KEY (id)
                 )';
 
@@ -70,7 +113,8 @@ class contactModel extends Model {
                 die('Could not create table: ' . mysql_error());
             }
 
-            //echo "Table info_contact created successfully\n";
+            // returning the mysql connection
+            return $conn;
         }
     }
 
